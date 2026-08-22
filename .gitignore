@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+cookies.txt
+
+# Geçici dosyalar
+assets/final_video.mp4
+assets/speech.mp3
+assets/subs.srt

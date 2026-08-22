@@ -1,0 +1,5 @@
+edge-tts
+ffmpeg-python==0.2.0
+feedparser==6.0.11
+deep-translator==1.11.4
+tiktok-uploader
