@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import shutil
 import uuid
 from pathlib import Path
 
@@ -69,10 +70,11 @@ async def generate_video(request: GenerateRequest):
     try:
         await run_in_threadpool(_generate, job_id, topic)
     except FileNotFoundError as exc:
-        (JOBS_DIR / job_id).mkdir(parents=True, exist_ok=True)
+        shutil.rmtree(JOBS_DIR / job_id, ignore_errors=True)
         logger.warning("Video üretimi için eksik dosya/araç: %s", exc)
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception:
+        shutil.rmtree(JOBS_DIR / job_id, ignore_errors=True)
         logger.exception("Video üretimi başarısız (job=%s)", job_id)
         raise HTTPException(status_code=500, detail="Video üretilemedi. FFmpeg/FFprobe ve TTS bağlantısını kontrol edin.")
     return {
