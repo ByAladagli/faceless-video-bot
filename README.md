@@ -1,50 +1,29 @@
-# Yüzsüz (Faceless) YouTube Shorts & TikTok Üretici Botu 🤖
+# Faceless Video Bot
 
-Bu proje, tamamen otomatik (otonom) bir şekilde çalışarak "Yüzsüz" (Faceless) kısa videolar üreten ve bunları TikTok / YouTube Shorts'a yüklemeye hazır hale getiren bir yapay zeka botudur.
+Türkçe teknoloji/bilim haber başlıklarından dikey video üreten bir Python prototipi. Google News RSS ile içerik bulur, Edge TTS ile ses/altyazı üretir, FFmpeg ile video montajlar. TikTok yüklemesi yalnızca yerel `cookies.txt` mevcutsa denenir.
 
-## 🌟 Özellikler
+## Gereksinimler
+- Python 3.10+
+- FFmpeg ve FFprobe PATH üzerinde
+- TikTok yükleme için, yalnızca hesabınızın izin verdiği resmi/uyumlu bir kimlik doğrulama yöntemi
 
-- **Tam Otomatik İçerik Bulucu:** Reddit'in popüler başlıklarından (`r/Showerthoughts` vb.) İngilizce metinleri otomatik çeker.
-- **Akıllı Çeviri & Filtreleme:** İngilizce içerikleri yapay zeka ile Türkçe'ye çevirir. Küfür ve yasaklı kelime filtresinden geçirerek temiz bir içerik oluşturur.
-- **Gerçekçi Yapay Zeka Ses (TTS):** Microsoft Edge'in yüksek kaliteli *Aria* sinirsel sesiyle metni seslendirir.
-- **Dinamik Altyazılar:** Senkronize, TikTok tarzı kalın sarı fontlu ve siyah gölgeli, kelime-kelime/cümle-cümle altyazılar (SRT) üretir.
-- **FFmpeg ile Otomatik Montaj:** Videoyu dikey formata (9:16) uygun olarak kırpar, arkaplan videosu üzerine sesi ve altyazıları kusursuz şekilde yerleştirir.
-- **Otomatik Yükleme Altyapısı:** İşlem bitiminde videoyu TikTok API veya çerezler üzerinden yükleyebilecek temel yapıya sahiptir.
-
-## ⚙️ Kurulum (Nasıl Çalıştırılır?)
-
-Bu botu kendi bilgisayarınızda çalıştırmak için aşağıdaki adımları sırasıyla izleyin.
-
-### 1. Gereksinimler
-- **Python 3.9+** (Sisteminizde yüklü olmalıdır)
-- **FFmpeg** (Video montajı için gereklidir, sistem PATH'inize ekli olmalıdır)
-
-### 2. İndirme ve Bağımlılıkların Yüklenmesi
-Projeyi indirdikten sonra, terminali (veya komut satırını) açın ve projenin bulunduğu klasöre gidin:
-
-```bash
-cd faceless-video-bot
-pip install -r requirements.txt
-```
-
-### 3. Arkaplan Videosu Ayarlama (Opsiyonel)
-Bot, videonun arka planına koymak için `assets/background.mp4` adlı bir dosyaya ihtiyaç duyar. 
-Projede standart bir arka plan bulunur. Ancak kendi "parkur", "Minecraft", "GTA" veya "tatmin edici (satisfying)" videolarınızı bu klasöre `background.mp4` adıyla atarak videoları özelleştirebilirsiniz.
-
-### 4. Botu Çalıştırma
-Tüm hazırlıklar tamamlandığında botu çalıştırmak çok basittir:
-
-```bash
+## Kurulum
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 python main.py
 ```
 
-Sistem otomatik olarak:
-1. Hikayeyi çekecek ve Türkçeye çevirecek.
-2. Sesi ve altyazıyı oluşturacak.
-3. Videoyu renderlayıp `assets/final_video.mp4` olarak çıktı verecektir!
+Arka plan videosu `assets/background.mp4` veya `backend/background.mp4` konumunda bulunmalıdır. Video üretimi için çıktı `assets/final_video.mp4` olur. FFmpeg/FFprobe özel bir bilgisayar yoluna sabitlenmemiştir; PATH üzerinden bulunur.
 
-## ⚠️ Uyarılar ve Sınırlamalar
-- **TikTok Yüklemesi İçin:** Otomatik yükleme özelliğinin çalışması için TikTok hesabınıza giriş yaptığınız tarayıcı çerezlerinizi bir `cookies.txt` dosyası olarak ana dizine eklemeniz gerekebilir. Eğer bu dosya yoksa bot videoyu üretir ancak yükleme adımını atlar.
+## Davranış ve sınırlamalar
+- İçerik kaynağı Google News RSS'dir; Reddit kullanılmaz.
+- RSS erişilemezse sahte/yedek hikâye üretmek yerine işlem durur.
+- TikTok çerezi yoksa video yine üretilir, ancak içerik geçmişe eklenmez; yükleme daha sonra tekrar denenebilir.
+- Başarısız yükleme geçmişe yazılmaz.
+- Bu sürüm haber başlığı/özetinden kısa video üretir; tam senaryo yazımı, kaynak doğrulama, editoryal onay kuyruğu, güvenilir yayın API entegrasyonu ve zamanlanmış worker mimarisi henüz tamamlanmamıştır.
+- `cookies.txt`, API anahtarları ve üretilen medya Git'e eklenmemelidir.
 
----
-*Geliştirici: Bu sistem tamamen otonom çalışması amacıyla otomatik içerik üreticileri için tasarlanmıştır.*
+## Frontend
+`frontend` klasörü ayrı bir Vite/React arayüzüdür. Python video üretim hattına bağlı bir backend API'si şu anda tamamlanmış değildir; arayüzü çalıştırmak tek başına otomatik üretim başlatmaz.
