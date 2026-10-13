@@ -1,76 +1,94 @@
+import hashlib
+import re
+import urllib.request
+from html import unescape
+
 import feedparser
 from deep_translator import GoogleTranslator
-import re
 
-# Ayarlar
-REDDIT_RSS_URL = "https://www.reddit.com/r/Showerthoughts/top/.rss?t=day"
-BANNED_WORDS = ["ölüm", "intihar", "seks", "porno", "kan", "tecavüz", "suikast", "kill", "die", "suicide", "murder"]
+# No Reddit dependency: use public Google News RSS search results.
+NEWS_RSS_URL = (
+    "https://news.google.com/rss/search?q=(yapay+zeka+OR+teknoloji+OR+bilim)"
+    "&hl=tr&gl=TR&ceid=TR:tr"
+)
+BANNED_WORDS = [
+    "intihar", "tecavüz", "porno", "suikast", "bombalı saldırı",
+    "self-harm", "suicide", "rape", "pornography",
+]
 
-def clean_text(text):
-    # HTML etiketlerini ve linkleri temizle
-    text = re.sub(r'<[^>]+>', '', text)
-    text = re.sub(r'http\S+', '', text)
-    # Gereksiz boşlukları temizle
-    text = " ".join(text.split())
-    return text
 
-def check_banned_words(text):
-    text_lower = text.lower()
-    for word in BANNED_WORDS:
-        if word in text_lower:
-            return True
-    return False
+def clean_text(text: str) -> str:
+    text = re.sub(r"<[^>]+>", " ", unescape(text or ""))
+    text = re.sub(r"https?://\S+", "", text)
+    return " ".join(text.split())
+
+
+def check_banned_words(text: str) -> bool:
+    normalized = f" {clean_text(text).casefold()} "
+    return any(f" {word.casefold()} " in normalized for word in BANNED_WORDS)
+
+
+def _fetch_feed():
+    request = urllib.request.Request(
+        NEWS_RSS_URL,
+        headers={"User-Agent": "FacelessVideoBot/1.0 (RSS reader)"},
+    )
+    with urllib.request.urlopen(request, timeout=12) as response:
+        payload = response.read(2 * 1024 * 1024 + 1)
+    if len(payload) > 2 * 1024 * 1024:
+        raise ValueError("RSS yanıtı 2 MB sınırını aştı.")
+    return feedparser.parse(payload)
+
 
 def get_content():
-    """Reddit'ten günün en iyi gönderilerini çeker ve Türkçe olarak döndürür."""
-    feed = feedparser.parse(REDDIT_RSS_URL)
-    
+    """Return recent technology/science headlines from Google News RSS.
+
+    The bot does not fabricate fallback stories when a source is unavailable.
+    """
+    try:
+        feed = _fetch_feed()
+    except Exception as exc:
+        print(f"Haber kaynağına ulaşılamadı: {type(exc).__name__}: {exc}")
+        return []
+
     entries = []
-    
+    seen = set()
+    translator = GoogleTranslator(source="auto", target="tr")
     for entry in feed.entries:
-        title = clean_text(entry.title)
-        
-        # Filtreye takılanları atla
-        if check_banned_words(title):
+        title = clean_text(getattr(entry, "title", ""))
+        summary = clean_text(getattr(entry, "summary", ""))
+        link = str(getattr(entry, "link", "") or "")
+        stable_key = link or title
+        if not title or stable_key in seen or check_banned_words(title):
             continue
-            
-        # Çok kısa (15 karakterden az) veya çok uzun (300 karakterden fazla) ise atla
         if len(title) < 15 or len(title) > 300:
             continue
-            
-        try:
-            # Türkçeye çevir
-            translated_title = GoogleTranslator(source='en', target='tr').translate(title)
-            
-            # Çeviride sorunlu kelime var mı diye tekrar kontrol et
-            if check_banned_words(translated_title):
-                continue
-                
-            entries.append({
-                "id": entry.id,
-                "original_text": title,
-                "turkish_text": translated_title,
-                "link": entry.link
-            })
-            
-        except Exception as e:
-            print(f"Çeviri hatası: {e}")
-            continue
+        seen.add(stable_key)
 
-    if not entries:
-        # Eğer RSS'den veri çekilemezse (Örn: Rate limit) yedek bir hikaye kullan
+        # RSS titles are usually Turkish for this query; translate only when needed.
+        try:
+            translated_title = translator.translate(title) if not any(
+                char in "çğıöşüÇĞİÖŞÜ" for char in title
+            ) else title
+        except Exception:
+            translated_title = title
+
+        text = clean_text(f"{translated_title}. {summary}" if summary else translated_title)
+        if check_banned_words(text):
+            continue
+        item_id = hashlib.sha256(stable_key.encode("utf-8")).hexdigest()[:24]
         entries.append({
-            "id": "fallback_test_001",
-            "original_text": "This is a fallback test story because Reddit blocked the request.",
-            "turkish_text": "Dünyadaki en ilginç şeylerden biri, her insanın hayatında en az bir kez tamamen yabancı birinin arka plan karakteri olmasıdır.",
-            "link": ""
+            "id": item_id,
+            "original_text": title,
+            "turkish_text": text,
+            "link": link,
+            "source": "Google News RSS",
         })
-        
+        if len(entries) >= 20:
+            break
     return entries
 
+
 if __name__ == "__main__":
-    # Test amaçlı
-    icerikler = get_content()
-    for i, icerik in enumerate(icerikler[:3]):
-        print(f"{i+1}. Orijinal: {icerik['original_text']}")
-        print(f"{i+1}. Türkçe: {icerik['turkish_text']}\n")
+    for index, item in enumerate(get_content()[:5], start=1):
+        print(f"{index}. {item['turkish_text']}\n{item['link']}\n")
