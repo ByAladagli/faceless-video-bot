@@ -1,40 +1,61 @@
-import edge_tts
 import asyncio
-import os
+from pathlib import Path
 
-VOICE = "tr-TR-AhmetNeural" # Alternatif: tr-TR-EmelNeural
+import edge_tts
 
-async def generate_audio_and_subs(text, output_audio="assets/audio.mp3", output_subs="assets/subs.srt"):
-    """Metni sese dönüştürür ve kelime kelime altyazı (SRT) üretir."""
-    
-    # Hedef klasörü oluştur
-    os.makedirs(os.path.dirname(output_audio), exist_ok=True)
-    
-    communicate = edge_tts.Communicate(text, VOICE)
+ROOT = Path(__file__).resolve().parent
+ASSETS_DIR = ROOT / "assets"
+VOICE = "tr-TR-AhmetNeural"
+
+
+async def generate_audio_and_subs(text: str, output_audio=None, output_subs=None):
+    """Generate TTS audio and word-boundary subtitles at stable project paths."""
+    if not text or not text.strip():
+        raise ValueError("TTS metni boş olamaz.")
+
+    audio_path = Path(output_audio) if output_audio else ASSETS_DIR / "audio.mp3"
+    subs_path = Path(output_subs) if output_subs else ASSETS_DIR / "subs.srt"
+    audio_path = audio_path.resolve()
+    subs_path = subs_path.resolve()
+    audio_path.parent.mkdir(parents=True, exist_ok=True)
+    subs_path.parent.mkdir(parents=True, exist_ok=True)
+    audio_tmp = audio_path.with_suffix(audio_path.suffix + ".tmp")
+    subs_tmp = subs_path.with_suffix(subs_path.suffix + ".tmp")
+
+    communicate = edge_tts.Communicate(text.strip(), VOICE)
     submaker = edge_tts.SubMaker()
-    
-    with open(output_audio, "wb") as file:
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                file.write(chunk["data"])
-            elif chunk["type"] in ("WordBoundary", "SentenceBoundary"):
-                # Altyazı için kelime/cümle sınırlarını kaydet
-                submaker.feed(chunk)
+    try:
+        with audio_tmp.open("wb") as audio_file:
+            async for chunk in communicate.stream():
+                if chunk.get("type") == "audio":
+                    audio_file.write(chunk["data"])
+                elif chunk.get("type") in ("WordBoundary", "SentenceBoundary"):
+                    submaker.feed(chunk)
 
-    srt_content = submaker.get_srt()
-    
-    with open(output_subs, "w", encoding="utf-8") as file:
-        file.write(srt_content)
-        
-    return output_audio, output_subs
+        subtitles = submaker.get_srt()
+        if not audio_tmp.is_file() or audio_tmp.stat().st_size == 0:
+            raise RuntimeError("TTS ses çıktısı boş.")
+        if not subtitles.strip():
+            raise RuntimeError("TTS altyazı çıktısı boş; sağlayıcı kelime sınırlarını döndürmemiş olabilir.")
 
-def create_tts(text, audio_path="assets/audio.mp3", subs_path="assets/subs.srt"):
-    """Asenkron fonksiyonu senkron olarak çağırmak için sarıcı."""
-    asyncio.run(generate_audio_and_subs(text, audio_path, subs_path))
-    return audio_path, subs_path
+        subs_tmp.write_text(subtitles, encoding="utf-8")
+        audio_tmp.replace(audio_path)
+        subs_tmp.replace(subs_path)
+    except Exception:
+        audio_tmp.unlink(missing_ok=True)
+        subs_tmp.unlink(missing_ok=True)
+        raise
+
+    return str(audio_path), str(subs_path)
+
+
+def create_tts(text: str, audio_path=None, subs_path=None):
+    """Synchronous wrapper for the command-line pipeline."""
+    return asyncio.run(generate_audio_and_subs(text, audio_path, subs_path))
+
 
 if __name__ == "__main__":
-    # Test amaçlı
-    test_metni = "Merhaba, bu otomatik olarak üretilen yüzsüz bir videodur. Sadece kod ile yapılmıştır."
-    create_tts(test_metni)
-    print("Test ses ve altyazı dosyaları assets/ klasörüne kaydedildi.")
+    audio, subtitles = create_tts(
+        "Merhaba, bu otomatik olarak üretilen bir videodur.",
+    )
+    print(f"Ses: {audio}\nAltyazı: {subtitles}")
