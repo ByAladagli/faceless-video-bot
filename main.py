@@ -1,5 +1,4 @@
 import json
-import os
 from pathlib import Path
 
 from scraper import get_content
@@ -18,9 +17,8 @@ def load_history() -> set[str]:
     try:
         data = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
         return set(data) if isinstance(data, list) else set()
-    except (json.JSONDecodeError, OSError):
-        # Keep the corrupt file for recovery rather than silently overwriting it.
-        raise RuntimeError(f"Geçmiş dosyası okunamadı: {HISTORY_FILE}")
+    except (json.JSONDecodeError, OSError) as exc:
+        raise RuntimeError(f"Geçmiş dosyası okunamadı: {HISTORY_FILE}") from exc
 
 
 def save_history(history: set[str]) -> None:
@@ -34,7 +32,7 @@ def run_bot() -> None:
     print("Bot başlatılıyor...")
     entries = get_content()
     if not entries:
-        print("İçerik kaynağından kullanılabilir içerik alınamadı.")
+        print("İçerik kaynağından kullanılabilir içerik alınamadı; sahte içerik üretilmedi.")
         return
 
     history = load_history()
@@ -50,9 +48,12 @@ def run_bot() -> None:
 
     print(f"Seçilen içerik: {text}")
     ASSETS_DIR.mkdir(parents=True, exist_ok=True)
-    audio_path, subtitles_path = create_tts(text)
+    audio_path, subtitles_path = create_tts(
+        text, str(ASSETS_DIR / "audio.mp3"), str(ASSETS_DIR / "subs.srt")
+    )
     video_path = make_video(audio_path, subtitles_path, ASSETS_DIR / "final_video.mp4")
-    if not Path(video_path).is_file() or Path(video_path).stat().st_size == 0:
+    output = Path(video_path)
+    if not output.is_file() or output.stat().st_size == 0:
         raise RuntimeError("Video üretimi tamamlandı olarak bildirildi ancak çıktı dosyası yok/boş.")
 
     if not COOKIES_FILE.is_file():
@@ -61,12 +62,10 @@ def run_bot() -> None:
         return
 
     try:
-        # Optional uploader dependency is imported only when upload is requested.
         from tiktok_uploader.upload import upload_video
-        description = f"{text}\n\n#ilginçbilgiler #hikaye #fyp #keşfet"
-        upload_video(filename=video_path, description=description, cookies=str(COOKIES_FILE))
+        description = f"{text}\n\n#teknoloji #bilim #fyp #keşfet"
+        upload_video(filename=str(output), description=description, cookies=str(COOKIES_FILE))
     except Exception as exc:
-        # Don't mark the item as processed if upload failed.
         print(f"TikTok yükleme hatası: {type(exc).__name__}: {exc}")
         return
 
