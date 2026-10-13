@@ -1,10 +1,15 @@
+# Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+.venv/
+venv/
 .env
-cookies.txt
+.env.*
+!.env.example
 
-# Geçici dosyalar
-assets/final_video.mp4
-assets/speech.mp3
+# Generated media and temporary downloads
+assets/audio.mp3
 assets/subs.srt
+assets/final_video.mp4
+assets/*.part
+cookies.txt
