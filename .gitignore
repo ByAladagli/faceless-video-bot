@@ -7,9 +7,10 @@ venv/
 .env.*
 !.env.example
 
-# Generated media and temporary downloads
+# Generated media and credentials
 assets/audio.mp3
 assets/subs.srt
 assets/final_video.mp4
+assets/jobs/
 assets/*.part
 cookies.txt
