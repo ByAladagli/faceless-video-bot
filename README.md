@@ -1,49 +1,61 @@
 # Faceless Video Bot
 
-Türkçe teknoloji/bilim haber başlıklarından dikey video üreten bir Python prototipi. İki çalışma yolu vardır:
-
-- **Web arayüzü/API:** Kullanıcının girdiği metni Edge TTS ile seslendirir, altyazı oluşturur ve FFmpeg ile MP4 üretir.
-- **CLI botu:** Google News RSS'den içerik seçer, video üretir ve yalnızca yerel `cookies.txt` varsa TikTok yüklemesini dener.
+Türkçe dikey video üretimi ve tarayıcı tabanlı yayın otomasyonu. Mevcut prototipte Edge TTS + FFmpeg video üretimi, Google News RSS içerik toplama, 30 günlük takvim, SQLite yayın geçmişi ve Selenium tabanlı YouTube/TikTok/Instagram yayın akışı bulunur.
 
 ## Gereksinimler
 - Python 3.10+
-- Node.js 20+
+- Google Chrome
 - FFmpeg ve FFprobe PATH üzerinde
+- Kaynak arka plan videosu: `assets/background.mp4` veya `backend/background.mp4`
 
-## Kurulum
+## Windows kurulumu
 ```powershell
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 ```
 
-Arka plan videosu `assets/background.mp4` veya `backend/background.mp4` konumunda bulunmalıdır.
+İlk olarak `assets/background.mp4` dosyasını yerleştirin veya mevcut `backend/background.mp4` dosyasını kullanın. Sonra:
+```powershell
+python scheduler.py
+```
+İlk açılışta 30 günlük plan `data/monthly_plan.json` dosyasına, yayın durumu `data/publishing.sqlite3` veritabanına kaydedilir. Zamanlayıcı her gün Türkiye saatiyle 19:00'da çalışır. Bilgisayarın/sunucunun açık ve internete bağlı olması gerekir.
 
-## Web arayüzünü çalıştırma
-Terminal 1:
+## Tarayıcı oturumları
+İlk çalıştırmada Selenium her platform için ayrı kalıcı Chrome profili oluşturur:
+- `browser_profiles/youtube`
+- `browser_profiles/tiktok`
+- `browser_profiles/instagram`
+
+Her platform hesabına tarayıcıda normal şekilde manuel giriş yapın; sonra otomasyonu yeniden çalıştırın. İki aşamalı doğrulama/CAPTCHA atlatılmaz. `SELENIUM_HEADLESS=1` yalnızca oturumlar hazırlandıktan sonra denenmelidir. Arayüz seçicileri platform güncellemeleriyle bozulabilir; her başarısız görev loglanır ve otomatik olarak başarılı sayılmaz.
+
+## Ayarlar
+- `PUBLISH_TIME=19:00`
+- `BOT_TIMEZONE=Europe/Istanbul`
+- `SELENIUM_PROFILE_DIR=browser_profiles`
+- `SELENIUM_WAIT_SECONDS=25`
+- `SELENIUM_HEADLESS=0`
+
+## Çalışma davranışı
+- Aynı günlük video dosyası üç platforma ayrı ayrı gönderilir.
+- Başarılı platform görevi tekrar denenmez; başarısız görev `retry` durumunda kalır.
+- Yayın geçmişi SQLite'a yazılır. Bilgisayar günlerce kapalı kalırsa geçmiş yayınlar bir anda topluca yüklenmez.
+- Google News RSS erişilemezse sahte haber üretilmez.
+- Plan oluşturma sırasında eldeki benzersiz haber sayısı 30'dan azsa plan aynı konuları döndürebilir; yayın öncesinde `data/monthly_plan.json` dosyasını kontrol edin.
+- Şu an platformlardan otomatik video indirme/çekme özelliği tamamlanmış değildir. Kaynak video kullanımı için yalnızca kendi videonuzu veya yeniden kullanım izniniz olan dosyaları kullanın. Güncel akış haber metninden Türkçe anlatım videosu üretir.
+- Selenium ile yükleme platformların resmî API'lerini kullanmaz; arayüz akışları kararsız olabilir. Yayın onayını kontrol edin.
+
+## Web arayüzü
+Mevcut metin-video API'si:
 ```powershell
 python api.py
 ```
-API: http://127.0.0.1:8001/api/health
-
-Terminal 2:
+Ön yüz:
 ```powershell
 cd frontend
 npm ci
 npm run dev
 ```
-Arayüz varsayılan olarak http://localhost:5173 adresinde açılır. API adresini değiştirmek için frontend ortamında `VITE_API_BASE_URL` tanımlayın.
 
-## CLI botunu çalıştırma
-```powershell
-python main.py
-```
-Video `assets/final_video.mp4` olarak üretilir. TikTok yüklemesi yalnızca `cookies.txt` bulunduğunda denenir. Başarısız/atlanmış yükleme geçmişe yazılmaz.
-
-## Davranış ve sınırlamalar
-- İçerik kaynağı Google News RSS'dir; Reddit kullanılmaz.
-- RSS erişilemezse sahte/yedek hikâye üretmek yerine işlem durur.
-- Web arayüzü girilen metni doğrudan seslendirir; LLM senaryo üretimi henüz entegre değildir.
-- Otomatik sosyal paylaşım, yayın planlayıcı, görev kuyruğu, içerik onay ekranı ve kalıcı üretim geçmişi henüz tamamlanmamıştır.
-- `cookies.txt`, API anahtarları ve üretilen medya Git'e eklenmemelidir.
-- Web API varsayılan olarak yalnızca localhost'ta dinler. İnternete açmadan önce kimlik doğrulama, oran sınırlaması, iş kuyruğu ve çıktı saklama politikası ekleyin.
+## Güvenlik
+`browser_profiles/`, `.env`, SQLite veritabanı ve oluşturulan medya dosyalarını Git'e eklemeyin. Tarayıcı profilleri oturum çerezleri içerir. Bu otomasyonu yalnızca kendi hesaplarınızda ve platform kurallarına uygun biçimde kullanın.
