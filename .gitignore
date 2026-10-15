@@ -7,10 +7,16 @@ venv/
 .env.*
 !.env.example
 
-# Generated media and credentials
+# Generated media and runtime state
 assets/audio.mp3
 assets/subs.srt
 assets/final_video.mp4
 assets/jobs/
 assets/*.part
+assets/*.mp3
+assets/*.srt
+assets/*.mp4
+data/
+logs/
+browser_profiles/
 cookies.txt
